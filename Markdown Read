@@ -1,0 +1,205 @@
+---
+title: "Syngene International Financial Analysis"
+author: "Aswin Kumar V"
+date: '2022-04-15'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries}
+suppressPackageStartupMessages(library(tidyverse,patchwork)) 
+```
+
+
+```{r}
+library(readxl)
+print(getwd())
+setwd("C:/Users/Aswin V Kumar/Documents")
+Syngene <- read_excel("C:Syngene International.xlsx")
+view(Syngene)
+```
+
+ #                  INVESTMENT ANALYSIS - SYNGENE INTERNATIONAL 
+
+
+
+
+## SALES - PROFIT DIVERGENCE
+
+```{r, warning=FALSE}
+library(hrbrthemes)
+Salescolor <- "black"
+Profitcolor <- rgb(0.2,0.6,0.9,1)
+coeff <- 1
+ggplot(Syngene,aes(x=Particulars))+ geom_line(aes(y=Sales),size=2,color=Salescolor)+geom_line(aes(y=`Operating Profit`),size=2,color=Profitcolor)+scale_y_continuous(name="Sales",sec.axis = sec_axis(~.*coeff,name="Profit"))+theme_ipsum()+theme(axis.title.y = element_text(color=Salescolor,size=13),axis.title.y.right = element_text(color=Profitcolor,size=13))+ggtitle("Sales-Profit Relation")
+
+```
+
+
+
+### The 10 year trends of Sales and Profit figures of Sygene displays a diverging trend pointing to the weakening efficiency of operations. The profit curve has flattened significanrly while the sales figure has a steep slope showing the increasing burden of costs.
+
+
+
+
+
+## STOCK PRICE DISTRIBUTION
+
+```{r, warning = FALSE}
+syndistr <- read_excel("Syndistr.xlsx")
+attach(syndistr)
+hist(`Daily Returns`,color="blue",xlab="Returns Distribution", border="green")
+```
+
+
+
+### The above diagram pulls and organizes the daily stock returns of the data in the form of a probability distribution. The distribution is negatively skewed meaning the downside risk of daily price movements are higher than the positive returns. It is reasonable to assume a longer term position in the stock to capture value.
+
+
+
+## Fundamental - Valuation Disconnect
+
+```{r, warning=FALSE}
+library(ggpubr)
+syncor <- read_excel("syncor.xlsx")
+view(syncor)
+attach(syncor)
+ggscatter(syncor, x = 'SR', y = 'FR', 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "Stock Returns", ylab = "Free Cash Flow")
+
+```
+
+
+
+#### We see the existence of outliers in the data causing a very low R squared value, lets remove them and re-test the relationship.
+
+```{r, warning=FALSE}
+shapiro.test(SR)
+shapiro.test(FR)
+ggqqplot(SR,ylab="Stock Returns")
+ggqqplot(FR, ylab="FCF returns")
+summary(SR)
+summary(FR)
+
+# Does not display a normal distribution
+
+boxplot(syncor$SR)$out
+boxplot(syncor$FR)$out
+sapply(syncor$SR, function(x) x %in% boxplot(syncor$SR)$out)
+syncor$SR[syncor$SR %in% boxplot(syncor$SR)$out] <- median(syncor$SR)
+boxplot(SR)
+View(SR)
+
+sapply(syncor$FR, function(x) x %in% boxplot(syncor$FR)$out)
+syncor$FR[syncor$FR %in% boxplot(syncor$FR)$out] <- median(syncor$FR)
+boxplot(FR)
+View(FR)
+
+
+```
+
+#### Let's test it again
+
+```{r,warning=FALSE}
+ggscatter(syncor,x='SR',y='FR',add="reg.line", conf.int = TRUE,cor.coef = TRUE,cor.method = "pearson",xlab = "Stock Returns",ylab = "FCF Returns")
+res <- cor.test(syncor$SR,syncor$FR,method="pearson")
+res
+
+```
+
+
+
+### There we go, we can see the effect of the outliers having significantly changed the nature of the relationship between the growth in the Free cash flow and Annual stock returns. The regression analysis also points out the hypothesis that the correlation is statistically insignificant. So, the fundamentals arent a good predictor of stock prices and vice versa.
+
+
+##  PROFITABLE USE OF FUNDS (PROFIT - CAPITAL EMPLOYED)
+
+```{r, warning=FALSE}
+# Compute Capital employed
+Syngene$total_assets <- Syngene[,6]+Syngene[,7]+Syngene[,8]+Syngene[,9]
+view(Syngene)
+Syngene$capital_employed <- Syngene[,32]-Syngene[,9]
+view(Syngene)
+attach(Syngene)
+Syngene$capital_employed <- unlist(Syngene$capital_employed)
+sapply(Syngene$capital_employed, function(x) x %in% boxplot(Syngene$capital_employed)$out)
+Syngene$capital_employed[Syngene$capital_employed %in% boxplot(Syngene$capital_employed)$out] <- median(Syngene$capital_employed)
+sapply(Syngene$`Profit before tax`, function(x) x %in% boxplot(Syngene$`Profit before tax`)$out)
+Syngene$`Profit before tax`[Syngene$`Profit before tax` %in% boxplot(Syngene$`Profit before tax`)$out] <- median(Syngene$`Profit before tax`)
+ggscatter(Syngene,x='capital_employed',y="Profit before tax",add="reg.line",conf.int =  TRUE, cor.coef = TRUE, cor.method = "pearson",xlab="Capital Employed",ylab="Profit")
+```
+
+
+
+### The following relation (normalized figures) aims to explain the significance of use of capital available and its determination of the profitability. A low relationship or R squared value may imply inefficent use of funds. Here we a signicantly large p-value and r value pointing to strong positive relationship - if higher capital is employed, the profits may increase which requires good use of funds.
+
+
+## COMPETETIVE ADVANTAGE - MOAT FACTORS
+
+```{r, warning=FALSE}
+Syngene$ROIC <- Syngene[,"Profit before tax"]/(Syngene[,"Equity Share Capital"]+Syngene[,"Borrowings"]+Syngene[,"Reserves"])
+Syngene$ROIC <- Syngene[,"ROIC"]*100
+summary(Syngene$ROIC)
+Syngene$ROE <- Syngene[,"Profit before tax"]/(Syngene[,"Equity Share Capital"]+Syngene[,"Reserves"])
+Syngene$ROE <- Syngene[,"ROE"]*100
+Syngene$ROE <- unlist(Syngene$ROE)
+Syngene$ROIC <- unlist(Syngene$ROIC)
+attach(Syngene)
+library(dplyr)
+require(ggplot2)
+
+plot(Syngene$Particulars,Syngene$ROIC,type="o",col="blue",pch="o",lty=1,ylim=c(0,50),ylab="Return Rate",xlab="Year")
+lines(Syngene$Particulars,Syngene$ROE,col="red",pch="*",type="b",lty=2)
+legend("topleft",legend = c("ROIC","ROE"),fill=c("blue","red"),lty = c(1,2))
+abline(h=15,col="darkgreen",ylab="Moat border")
+```
+
+
+
+### The investment returns and equity returns show us the earnign power of a firm. The difference between the ROE and ROIC signifies the impact of debt on the return margins.The closing margin and falling rates - below 15% line shows us that the companies competetive advantage may be weaknening. It was the highest in 2016, but falling ever since. This may be a cause for worry and calls for prudent cost management.
+
+
+
+
+## Regression Analysis - Impact of Capcity and Intellectual Property
+
+```{r, warning=FALSE}
+input <- Syngene[,c("Sales","Net Block","Intangible Assets")]
+model <- lm(Sales~`Net Block`+`Intangible Assets`,data=input)
+print(model)
+```
+
+
+
+### Pharma companies, especially those in CRAMs businesses rely on capacity and Intangible assets (including Intellectual property & amortized research costs) to increase the sales and market share. But according to out test results, the large intercept shows that they dont have a significant impact on sales. The intangible assets do have a reasonable force in driving sales which is not as strong as the impact of capacity. 
+###The company should look into improving its capacity utilization.
+
+
+## STOCK PRICE CHART
+
+```{r, warning=FALSE}
+library(quantmod)
+library(plotly)
+getSymbols("SYNGENE.NS",src='yahoo')
+df <- data.frame(Date=index(SYNGENE.NS),coredata(SYNGENE.NS))
+df <- tail(df, 30)
+
+fig <- df %>% plot_ly(x = ~Date, type="candlestick",
+          open = ~SYNGENE.NS.Open, close = ~SYNGENE.NS.Close,
+          high = ~SYNGENE.NS.High, low = ~SYNGENE.NS.Low) 
+fig <- fig %>% layout(title = "Basic Candlestick Chart")
+
+fig
+```
+
+
+
+### The following price chart shows us the the prices have been trending on the upside the past two months despite a drop in the rates, it may be in the investors interest to wait further until the management strategy is updated and quarterly fundamentals to improve before making any investment.
+
